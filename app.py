@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 # Funcion para cargar los datos al dataset
 @st.cache_data
 def cargarDatos():
-    return pd.read_csv('/datos/datos-limpios.csv', encoding='latin-1')
+    return pd.read_csv('./datos/datos-limpios.csv', encoding='latin-1')
 
 df = cargarDatos()
 st.title("Dataset original:")
