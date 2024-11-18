@@ -9,8 +9,11 @@ import matplotlib.pyplot as plt
 def cargarDatos():
     return pd.read_csv('./datos/datos-limpios.csv', encoding='latin-1')
 
+st.title("Datset original:")
+st.dataframe(data=pd.read_csv('./datos/datos-originales.csv', encoding='latin-1'))
+
 df = cargarDatos()
-st.title("Dataset original:")
+st.title("Dataset limpio:")
 st.dataframe(data=df)
 
 # Funcion para normalizar las columans
