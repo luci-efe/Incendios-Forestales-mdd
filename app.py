@@ -36,7 +36,7 @@ def crearHistogramas(df, columnaOriginal, columnaNormalizada):
     ax1.hist(df[columnaOriginal], bins=30, edgecolor='black')
     ax1.set_title(f'Distribución de {columnaOriginal}')
     ax1.set_xlabel(columnaOriginal)
-    ax1.set_ylabel('Frecuencia')
+    ax1.set_ylabel('Frecuencia') 
 
     # Histograma de datos normalizados
     ax2.hist(df[columnaNormalizada], bins=30, edgecolor='black')
