@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 import scipy.stats as stats
+from sklearn.cluster import KMeans
 
 # Funcion para cargar los datos al dataset
 @st.cache_data
@@ -117,7 +118,7 @@ df_scaled = df.copy()
 df_scaled[numeric_features] = scaler.fit_transform(df_scaled[numeric_features])
 
 # Codificación de variables categóricas con OneHotEncoding
-encoder = OneHotEncoder(sparse=False)
+encoder = OneHotEncoder(sparse_output=False)
 encoded_cats = encoder.fit_transform(df_scaled[categorical_features])
 encoded_cats_df = pd.DataFrame(encoded_cats, columns=encoder.get_feature_names_out(categorical_features))
 
