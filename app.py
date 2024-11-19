@@ -1,8 +1,7 @@
 import streamlit as st
 import pandas as pd
 from IPython.display import display
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import StandardScaler, OneHotEncoder, LabelEncoder, MinMaxScaler
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
@@ -108,4 +107,62 @@ plt.title('Heatmap de Correlación Ampliada')
 st.pyplot(fig_corr_ext)
 plt.clf()
 
+# Variables seleccionadas para clustering
+numeric_features = ['duracion-dias-normalizado', 'log_tamanio_m2', 'latitud', 'longitud']
+categorical_features = ['causa', 'tipo-vegetacion', 'region']
 
+# Estandarización de variables numéricas
+scaler = StandardScaler()
+df_scaled = df.copy()
+df_scaled[numeric_features] = scaler.fit_transform(df_scaled[numeric_features])
+
+# Codificación de variables categóricas con OneHotEncoding
+encoder = OneHotEncoder(sparse=False)
+encoded_cats = encoder.fit_transform(df_scaled[categorical_features])
+encoded_cats_df = pd.DataFrame(encoded_cats, columns=encoder.get_feature_names_out(categorical_features))
+
+# Concatenar variables numéricas escaladas y categóricas codificadas
+df_cluster = pd.concat([df_scaled[numeric_features], encoded_cats_df], axis=1)
+
+# Determinación del número óptimo de clusters con el método del codo
+inertia = []
+k_range = range(2, 11)
+
+for k in k_range:
+    kmeans = KMeans(n_clusters=k, random_state=42)
+    kmeans.fit(df_cluster)
+    inertia.append(kmeans.inertia_)
+
+plt.figure(figsize=(8, 5))
+plt.plot(k_range, inertia, marker='o')
+plt.title('Método del Codo')
+plt.xlabel('Número de Clusters (k)')
+plt.ylabel('Inercia')
+plt.show()
+
+# Usar silhouette score para evaluar k
+best_k = 3  # Cambiar basado en resultados del codo o silhouette
+kmeans = KMeans(n_clusters=best_k, random_state=42)
+clusters = kmeans.fit_predict(df_cluster)
+
+# Agregar los clusters al DataFrame original
+df['cluster'] = clusters
+
+# Visualización con reducción de dimensionalidad (PCA)
+from sklearn.decomposition import PCA
+
+pca = PCA(n_components=2)
+pca_data = pca.fit_transform(df_cluster)
+
+plt.figure(figsize=(8, 5))
+scatter = plt.scatter(pca_data[:, 0], pca_data[:, 1], c=clusters, cmap='viridis', alpha=0.7)
+plt.colorbar(scatter, label='Cluster')
+plt.title('Clusters visualizados con PCA')
+plt.xlabel('Componente Principal 1')
+plt.ylabel('Componente Principal 2')
+plt.show()
+
+if st.button("Generar Clusters"):
+    st.title("Resultados de Clustering")
+    st.dataframe(data=df[['duracion-dias', 'tamanio-m2', 'causa', 'cluster']])
+    st.pyplot(plt)  # Donde plt corresponde al gráfico PCA generado.
