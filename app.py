@@ -2,9 +2,11 @@ import streamlit as st
 import pandas as pd
 from IPython.display import display
 from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import LabelEncoder
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
+import scipy.stats as stats
 
 # Funcion para cargar los datos al dataset
 @st.cache_data
@@ -76,4 +78,34 @@ plt.title('Distribucion Geografica de Incendios')
 plt.xlabel('Longitud')
 plt.ylabel('Latitud')
 st.pyplot(plt)
+
+# Analizar correlacion entre variables
+st.title("Correlacion entre variables")
+
+# Convertir variables categóricas a numéricas usando Label Encoding
+categorical_cols = ['causa', 'tipo-vegetacion', 'estado', 'region', 'tipo-incendio', 'regimen-de-fuego', 'tipo-impacto']
+
+# Crear una copia para evitar advertencias
+df_encoded = df.copy()
+
+label_encoders = {}
+for col in categorical_cols:
+    le = LabelEncoder()
+    df_encoded[col] = le.fit_transform(df_encoded[col])
+    label_encoders[col] = le  # Guardar el encoder para interpretación futura
+
+# Seleccionar variables para la correlación
+corr_variables = ['duracion-dias', 'tamanio-m2', 'latitud', 'longitud', 'anio'] + categorical_cols
+
+# Calcular la matriz de correlación
+corr_matrix = df_encoded[corr_variables].corr()
+
+# Mostrar la matriz de correlación
+st.subheader("Matriz de Correlación Ampliada")
+fig_corr_ext, ax = plt.subplots(figsize=(12, 10))
+sns.heatmap(corr_matrix, annot=True, fmt=".2f", cmap='coolwarm', ax=ax)
+plt.title('Heatmap de Correlación Ampliada')
+st.pyplot(fig_corr_ext)
+plt.clf()
+
 
