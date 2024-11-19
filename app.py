@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from IPython.display import display
 from sklearn.preprocessing import StandardScaler, OneHotEncoder, LabelEncoder, MinMaxScaler
+from sklearn.decomposition import PSA
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
@@ -39,9 +40,6 @@ def normalizarCausa(df):
 df = normalizarColumna(df, "duracion-dias")
 df = normalizarColumna(df, "tamanio-m2")
 df = normalizarCausa(df)
-
-st.title("Dataset con nuevas columnas normalizadas:")
-st.dataframe(data=df)
 
 st.title("Distribucion de los datos")
 
@@ -148,9 +146,6 @@ clusters = kmeans.fit_predict(df_cluster)
 
 # Agregar los clusters al DataFrame original
 df['cluster'] = clusters
-
-# Visualización con reducción de dimensionalidad (PCA)
-from sklearn.decomposition import PCA
 
 pca = PCA(n_components=2)
 pca_data = pca.fit_transform(df_cluster)
