@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-from IPython.display import display
 from sklearn.preprocessing import StandardScaler, OneHotEncoder, LabelEncoder, MinMaxScaler
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
@@ -8,7 +7,7 @@ from sklearn.metrics import silhouette_score, calinski_harabasz_score
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
-import scipy.stats as stats
+import os
 
 # Función para cargar los datos al dataset
 @st.cache_data
@@ -73,10 +72,11 @@ plt.clf()
 
 # Gráfico de dispersión geográfico
 fig4 = plt.figure(figsize=(10, 6))
-sns.scatterplot(x='longitud', y='latitud', hue='duracion-dias', size='tamanio-m2', data=df)
+sns.scatterplot(x='longitud', y='latitud', hue='duracion-dias', size='tamanio-m2', data=df, alpha=0.6, palette='viridis')
 plt.title('Distribución Geográfica de Incendios')
 plt.xlabel('Longitud')
 plt.ylabel('Latitud')
+plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
 st.pyplot(fig4)
 plt.clf()
 
@@ -117,22 +117,21 @@ st.subheader("Seleccione el Modelo que Desea Generar")
 
 model_option = st.selectbox(
     'Seleccione el modelo:',
-    ('Modelo 1: Tamaño, Duración, Región, Estado y Causa',
-     'Modelo 2: Tipo de Vegetación, Duración, Región, Estado y Régimen de Fuego')
+    ('Modelo 1: Tamaño, Duración, Región y Causa',
+     'Modelo 2: Tipo de Vegetación, Región, Régimen de Fuego y Causa')
 )
 
-if model_option == 'Modelo 1: Tamaño, Duración, Región, Estado y Causa':
+if model_option == 'Modelo 1: Tamaño, Duración, Región y Causa':
     # Modelo 1
     st.write("**Variables utilizadas en el Modelo 1:**")
     st.write("- `tamanio-m2`")
     st.write("- `duracion-dias`")
     st.write("- `region`")
-    st.write("- `estado`")
     st.write("- `causa`")
     
     # Variables seleccionadas para clustering
     numeric_features = ['tamanio-m2', 'duracion-dias']
-    categorical_features = ['region', 'estado', 'causa']
+    categorical_features = ['region', 'causa']
     
     # Estandarización de variables numéricas
     scaler = StandardScaler()
@@ -140,38 +139,46 @@ if model_option == 'Modelo 1: Tamaño, Duración, Región, Estado y Causa':
     df_scaled[numeric_features] = scaler.fit_transform(df_scaled[numeric_features])
     
     # Codificación de variables categóricas con OneHotEncoding
-    encoder = OneHotEncoder(sparse_output=False)
+    encoder = OneHotEncoder(sparse_output=False, handle_unknown='ignore')
     encoded_cats = encoder.fit_transform(df_scaled[categorical_features])
     encoded_cats_df = pd.DataFrame(encoded_cats, columns=encoder.get_feature_names_out(categorical_features))
     
     # Concatenar variables numéricas escaladas y categóricas codificadas
     df_cluster = pd.concat([df_scaled[numeric_features], encoded_cats_df], axis=1)
+    
+    # Variable para identificar el modelo
+    model_id = 1
 
-elif model_option == 'Modelo 2: Tipo de Vegetación, Duración, Región, Estado y Régimen de Fuego':
+elif model_option == 'Modelo 2: Tipo de Vegetación, Región, Régimen de Fuego y Causa':
     # Modelo 2
     st.write("**Variables utilizadas en el Modelo 2:**")
     st.write("- `tipo-vegetacion`")
-    st.write("- `duracion-dias`")
     st.write("- `region`")
-    st.write("- `estado`")
     st.write("- `regimen-de-fuego`")
+    st.write("- `causa`")
     
     # Variables seleccionadas para clustering
-    numeric_features = ['duracion-dias']
-    categorical_features = ['tipo-vegetacion', 'region', 'estado', 'regimen-de-fuego']
+    numeric_features = []  # No hay variables numéricas seleccionadas en este modelo
+    categorical_features = ['tipo-vegetacion', 'region', 'regimen-de-fuego', 'causa']
     
-    # Estandarización de variables numéricas
-    scaler = StandardScaler()
+    # No hay variables numéricas a estandarizar en este modelo, pero si hubiera:
+    # scaler = StandardScaler()
+    # df_scaled = df.copy()
+    # df_scaled[numeric_features] = scaler.fit_transform(df_scaled[numeric_features])
+    
+    # Si no hay variables numéricas, simplemente copiamos el dataframe
     df_scaled = df.copy()
-    df_scaled[numeric_features] = scaler.fit_transform(df_scaled[numeric_features])
     
     # Codificación de variables categóricas con OneHotEncoding
-    encoder = OneHotEncoder(sparse_output=False)
+    encoder = OneHotEncoder(sparse_output=False, handle_unknown='ignore')
     encoded_cats = encoder.fit_transform(df_scaled[categorical_features])
     encoded_cats_df = pd.DataFrame(encoded_cats, columns=encoder.get_feature_names_out(categorical_features))
     
-    # Concatenar variables numéricas escaladas y categóricas codificadas
-    df_cluster = pd.concat([df_scaled[numeric_features], encoded_cats_df], axis=1)
+    # Concatenar variables categóricas codificadas (no hay numéricas en este modelo)
+    df_cluster = encoded_cats_df.copy()
+    
+    # Variable para identificar el modelo
+    model_id = 2
 
 # Determinación del número óptimo de clusters con el método del codo y silhouette score
 st.subheader("Determinación del Número Óptimo de Clusters")
@@ -215,7 +222,7 @@ st.write(f"**El número óptimo de clusters sugerido es {best_k}, basado en el m
 st.subheader("Seleccione el Número de Clusters (K)")
 selected_k = st.slider('Seleccione K', min_value=2, max_value=20, value=best_k)
 
-if st.button("Generar Clusters"):
+if st.button("Generar Clusters y Predecir Causas para Incendios Desconocidos"):
     # Entrenamiento del modelo K-Means con el K seleccionado
     kmeans = KMeans(n_clusters=selected_k, random_state=42)
     clusters = kmeans.fit_predict(df_cluster)
@@ -255,17 +262,57 @@ if st.button("Generar Clusters"):
 
     # Análisis de cada cluster
     st.subheader("Análisis de Clusters")
+    cluster_cause_mapping = {}  # Para almacenar la causa más común de cada cluster
+
     for i in range(selected_k):
         st.write(f"**Cluster {i}:**")
         cluster_data = df[df['cluster'] == i]
         st.write(f"- Número de registros: {len(cluster_data)}")
         st.write(f"- Duración promedio de incendios: {cluster_data['duracion-dias'].mean():.2f} días")
         st.write(f"- Tamaño promedio de incendios: {cluster_data['tamanio-m2'].mean():.2f} m²")
+        
+        # Determinar la causa más común excluyendo 'desconocido'
         if 'causa' in categorical_features:
-            st.write(f"- Causa más común: {cluster_data['causa'].mode()[0]}")
+            known_causes = cluster_data[cluster_data['causa'] != 'desconocido']
+            if not known_causes.empty:
+                most_common_cause = known_causes['causa'].mode()[0]
+                st.write(f"- Causa más común: {most_common_cause}")
+                cluster_cause_mapping[i] = most_common_cause
+            else:
+                st.write("- Causa más común: No disponible")
+        
+        # Determinar el tipo de vegetación más común si está en el modelo
         if 'tipo-vegetacion' in categorical_features:
-            st.write(f"- Tipo de vegetación más común: {cluster_data['tipo-vegetacion'].mode()[0]}")
+            most_common_veg = cluster_data['tipo-vegetacion'].mode()[0]
+            st.write(f"- Tipo de vegetación más común: {most_common_veg}")
+        
+        # Determinar el régimen de fuego más común si está en el modelo
         if 'regimen-de-fuego' in categorical_features:
-            st.write(f"- Régimen de fuego más común: {cluster_data['regimen-de-fuego'].mode()[0]}")
+            most_common_regimen = cluster_data['regimen-de-fuego'].mode()[0]
+            st.write(f"- Régimen de fuego más común: {most_common_regimen}")
+        
         st.write("---")
+
+    # Predicción de causas para incendios con causa desconocida
+    st.subheader("Predicción de Causas para Incendios con Causa Desconocida")
+
+    # Filtrar los incendios con causa desconocida
+    unknown_cause_df = df[df['causa'] == 'desconocido']
+    if not unknown_cause_df.empty and 'causa' in categorical_features:
+        # Asignar la causa más común del cluster correspondiente
+        df.loc[df['causa'] == 'desconocido', 'causa_predicha'] = df[df['causa'] == 'desconocido']['cluster'].map(cluster_cause_mapping)
+
+        # Mostrar los resultados
+        st.write("Se han predicho las causas para los incendios con causa desconocida basándose en los clusters.")
+        st.dataframe(df[df['causa'] == 'desconocido'][['duracion-dias', 'tamanio-m2', 'causa', 'causa_predicha', 'cluster']].head(50))
+
+        # Guardar el nuevo dataset con las causas predichas
+        output_file = './datos/datos_con_causas_predichas.csv'
+        os.makedirs(os.path.dirname(output_file), exist_ok=True)  # Crear la carpeta si no existe
+        df.to_csv(output_file, index=False)
+
+        st.write(f"El nuevo dataset con las causas predichas ha sido guardado en: `{output_file}`")
+
+    else:
+        st.write("No hay incendios con causa desconocida o la causa no es una variable considerada en este modelo.")
 
