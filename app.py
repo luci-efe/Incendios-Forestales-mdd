@@ -3,82 +3,85 @@ import pandas as pd
 from IPython.display import display
 from sklearn.preprocessing import StandardScaler, OneHotEncoder, LabelEncoder, MinMaxScaler
 from sklearn.decomposition import PCA
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score, calinski_harabasz_score
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 import scipy.stats as stats
-from sklearn.cluster import KMeans
 
-# Funcion para cargar los datos al dataset
+# Función para cargar los datos al dataset
 @st.cache_data
 def cargarDatos():
     return pd.read_csv('./datos/datos-limpios.csv', encoding='latin-1')
 
-st.title("Dataset original:")
-st.dataframe(data=pd.read_csv('./datos/datos-originales.csv', encoding='latin-1'))
+# Título de la aplicación
+st.title("Análisis Predictivo de Incendios Forestales en México")
 
+# Cargar y mostrar el dataset
 df = cargarDatos()
-st.title("Dataset limpio:")
+st.header("Dataset Limpio")
 st.dataframe(data=df)
 
-# Funcion para normalizar las columans
+# Función para normalizar las columnas
 def normalizarColumna(df, columna):
     scaler = MinMaxScaler()
     df[f'{columna}-normalizado'] = scaler.fit_transform(df[[columna]])
     return df
 
-# Funcion para convertir todas las entradas de causa a minusculas
+# Función para convertir todas las entradas de causa a minúsculas
 def normalizarCausa(df):
-    # Convertir todas las entradas a minúsculas
     df['causa'] = df['causa'].str.lower()
-
-    # Eliminar espacios en blanco al inicio y al final
     df['causa'] = df['causa'].str.strip()
-
     return df
 
+# Aplicar normalizaciones
 df = normalizarColumna(df, "duracion-dias")
 df = normalizarColumna(df, "tamanio-m2")
 df = normalizarCausa(df)
 
-st.title("Distribucion de los datos")
+# Sección de Distribución de los Datos
+st.header("Distribución de los Datos")
 
 # Histograma de la duración de los incendios
-plt.figure(figsize=(10, 6))
+fig1 = plt.figure(figsize=(10, 6))
 sns.histplot(df['duracion-dias'], bins=30, kde=True)
 plt.title('Distribución de la Duración de Incendios')
-plt.xlabel('Duración en Dias')
+plt.xlabel('Duración en Días')
 plt.ylabel('Frecuencia')
-st.pyplot(plt)
+st.pyplot(fig1)
+plt.clf()
 
-# Histograma del tamanio de los incendios
+# Histograma del tamaño de los incendios (log transformado)
 fig2 = plt.figure(figsize=(10, 6))
 df['log_tamanio_m2'] = np.log(df['tamanio-m2'] + 1)  # +1 para evitar log(0)
 sns.histplot(df['log_tamanio_m2'], bins=30, kde=True)
-plt.title('Distribucion Logaritmica del Tamanio de los Incendios')
-plt.xlabel('Log(Tamaioo en Metros Cuadrados)')
+plt.title('Distribución Logarítmica del Tamaño de los Incendios')
+plt.xlabel('Log(Tamaño en Metros Cuadrados)')
 plt.ylabel('Frecuencia')
 st.pyplot(fig2)
 plt.clf()
 
-# Grafico de barras de las causas de los incendios
-plt.figure(figsize=(12, 6))
+# Gráfico de barras de las causas de los incendios
+fig3 = plt.figure(figsize=(12, 6))
 sns.countplot(y='causa', data=df, order=df['causa'].value_counts().index)
 plt.title('Frecuencia de las Causas de los Incendios')
-plt.xlabel('Numero de Incendios')
+plt.xlabel('Número de Incendios')
 plt.ylabel('Causa')
-st.pyplot(plt)
+st.pyplot(fig3)
+plt.clf()
 
-# Grafico de dispersion geografico
-plt.figure(figsize=(10, 6))
+# Gráfico de dispersión geográfico
+fig4 = plt.figure(figsize=(10, 6))
 sns.scatterplot(x='longitud', y='latitud', hue='duracion-dias', size='tamanio-m2', data=df)
-plt.title('Distribucion Geografica de Incendios')
+plt.title('Distribución Geográfica de Incendios')
 plt.xlabel('Longitud')
 plt.ylabel('Latitud')
-st.pyplot(plt)
+st.pyplot(fig4)
+plt.clf()
 
-# Analizar correlacion entre variables
-st.title("Correlacion entre variables")
+# Analizar correlación entre variables
+st.header("Correlación entre Variables")
 
 # Convertir variables categóricas a numéricas usando Label Encoding
 categorical_cols = ['causa', 'tipo-vegetacion', 'estado', 'region', 'tipo-incendio', 'regimen-de-fuego', 'tipo-impacto']
@@ -106,6 +109,9 @@ plt.title('Heatmap de Correlación Ampliada')
 st.pyplot(fig_corr_ext)
 plt.clf()
 
+# Sección de Clustering K-Means
+st.header("Clustering K-Means")
+
 # Variables seleccionadas para clustering
 numeric_features = ['duracion-dias-normalizado', 'log_tamanio_m2', 'latitud', 'longitud']
 categorical_features = ['causa', 'tipo-vegetacion', 'region']
@@ -123,42 +129,95 @@ encoded_cats_df = pd.DataFrame(encoded_cats, columns=encoder.get_feature_names_o
 # Concatenar variables numéricas escaladas y categóricas codificadas
 df_cluster = pd.concat([df_scaled[numeric_features], encoded_cats_df], axis=1)
 
-# Determinación del número óptimo de clusters con el método del codo
+# Determinación del número óptimo de clusters con el método del codo y silhouette score
+st.subheader("Determinación del Número Óptimo de Clusters")
+
+# Cálculo de inercia y silhouette score para diferentes valores de K
 inertia = []
+silhouette_scores = []
 k_range = range(2, 11)
 
 for k in k_range:
     kmeans = KMeans(n_clusters=k, random_state=42)
     kmeans.fit(df_cluster)
     inertia.append(kmeans.inertia_)
+    cluster_labels = kmeans.labels_
+    silhouette_avg = silhouette_score(df_cluster, cluster_labels)
+    silhouette_scores.append(silhouette_avg)
 
-plt.figure(figsize=(8, 5))
+# Gráfico del Método del Codo
+fig_elbow = plt.figure(figsize=(8, 5))
 plt.plot(k_range, inertia, marker='o')
 plt.title('Método del Codo')
 plt.xlabel('Número de Clusters (k)')
 plt.ylabel('Inercia')
-plt.show()
+st.pyplot(fig_elbow)
+plt.clf()
 
-# Usar silhouette score para evaluar k
-best_k = 3  # Cambiar basado en resultados del codo o silhouette
-kmeans = KMeans(n_clusters=best_k, random_state=42)
-clusters = kmeans.fit_predict(df_cluster)
+# Gráfico de Silhouette Score
+fig_silhouette = plt.figure(figsize=(8, 5))
+plt.plot(k_range, silhouette_scores, marker='o', color='red')
+plt.title('Silhouette Score para Diferentes k')
+plt.xlabel('Número de Clusters (k)')
+plt.ylabel('Silhouette Score')
+st.pyplot(fig_silhouette)
+plt.clf()
 
-# Agregar los clusters al DataFrame original
-df['cluster'] = clusters
+# Recomendación de K basado en el máximo Silhouette Score
+best_k = k_range[np.argmax(silhouette_scores)]
+st.write(f"**El número óptimo de clusters sugerido es {best_k}, basado en el máximo Silhouette Score de {max(silhouette_scores):.2f}.**")
 
-pca = PCA(n_components=2)
-pca_data = pca.fit_transform(df_cluster)
-
-plt.figure(figsize=(8, 5))
-scatter = plt.scatter(pca_data[:, 0], pca_data[:, 1], c=clusters, cmap='viridis', alpha=0.7)
-plt.colorbar(scatter, label='Cluster')
-plt.title('Clusters visualizados con PCA')
-plt.xlabel('Componente Principal 1')
-plt.ylabel('Componente Principal 2')
-plt.show()
+# Entrada del usuario para seleccionar K
+st.subheader("Seleccione el Número de Clusters (K)")
+selected_k = st.slider('Seleccione K', min_value=2, max_value=10, value=best_k)
 
 if st.button("Generar Clusters"):
-    st.title("Resultados de Clustering")
-    st.pyplot(plt)  # Donde plt corresponde al gráfico PCA generado.
+    # Entrenamiento del modelo K-Means con el K seleccionado
+    kmeans = KMeans(n_clusters=selected_k, random_state=42)
+    clusters = kmeans.fit_predict(df_cluster)
+
+    # Agregar los clusters al DataFrame original
+    df['cluster'] = clusters
+
+    # Evaluación del modelo
+    silhouette_avg = silhouette_score(df_cluster, clusters)
+    ch_score = calinski_harabasz_score(df_cluster, clusters)
+
+    st.subheader("Evaluación del Modelo de Clustering")
+    st.write(f"**Silhouette Score:** {silhouette_avg:.2f}")
+    st.write(f"**Calinski-Harabasz Index:** {ch_score:.2f}")
+
+    # Visualización con PCA
+    pca = PCA(n_components=2)
+    pca_data = pca.fit_transform(df_cluster)
+
+    fig_clusters = plt.figure(figsize=(8, 5))
+    scatter = plt.scatter(pca_data[:, 0], pca_data[:, 1], c=clusters, cmap='viridis', alpha=0.7)
+    plt.colorbar(scatter, label='Cluster')
+    plt.title(f'Clusters Visualizados con PCA (K={selected_k})')
+    plt.xlabel('Componente Principal 1')
+    plt.ylabel('Componente Principal 2')
+    st.pyplot(fig_clusters)
+    plt.clf()
+
+    # Mostrar tabla con resultados
+    st.subheader("Resultados de Clustering")
+    st.dataframe(df[['duracion-dias', 'tamanio-m2', 'causa', 'cluster']].head(50))
+
+    # Mostrar conteo de registros por cluster
+    st.subheader("Conteo de Registros por Cluster")
+    cluster_counts = df['cluster'].value_counts().sort_index()
+    st.bar_chart(cluster_counts)
+
+    # Análisis de cada cluster
+    st.subheader("Análisis de Clusters")
+    for i in range(selected_k):
+        st.write(f"**Cluster {i}:**")
+        cluster_data = df[df['cluster'] == i]
+        st.write(f"- Número de registros: {len(cluster_data)}")
+        st.write(f"- Duración promedio de incendios: {cluster_data['duracion-dias'].mean():.2f} días")
+        st.write(f"- Tamaño promedio de incendios: {cluster_data['tamanio-m2'].mean():.2f} m²")
+        st.write(f"- Causa más común: {cluster_data['causa'].mode()[0]}")
+        st.write("---")
+
 
