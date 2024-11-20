@@ -271,9 +271,9 @@ if st.button("Generar Clusters y Predecir Causas para Incendios Desconocidos"):
         st.write(f"- Duración promedio de incendios: {cluster_data['duracion-dias'].mean():.2f} días")
         st.write(f"- Tamaño promedio de incendios: {cluster_data['tamanio-m2'].mean():.2f} m²")
         
-        # Determinar la causa más común excluyendo 'desconocido'
+        # Determinar la causa más común excluyendo 'desconocidas'
         if 'causa' in categorical_features:
-            known_causes = cluster_data[cluster_data['causa'] != 'desconocido']
+            known_causes = cluster_data[cluster_data['causa'] != 'desconocidas']
             if not known_causes.empty:
                 most_common_cause = known_causes['causa'].mode()[0]
                 st.write(f"- Causa más común: {most_common_cause}")
@@ -297,14 +297,14 @@ if st.button("Generar Clusters y Predecir Causas para Incendios Desconocidos"):
     st.subheader("Predicción de Causas para Incendios con Causa Desconocida")
 
     # Filtrar los incendios con causa desconocida
-    unknown_cause_df = df[df['causa'] == 'desconocido']
+    unknown_cause_df = df[df['causa'] == 'desconocidas']
     if not unknown_cause_df.empty and 'causa' in categorical_features:
         # Asignar la causa más común del cluster correspondiente
-        df.loc[df['causa'] == 'desconocido', 'causa_predicha'] = df[df['causa'] == 'desconocido']['cluster'].map(cluster_cause_mapping)
+        df.loc[df['causa'] == 'desconocidas', 'causa_predicha'] = df[df['causa'] == 'desconocidas']['cluster'].map(cluster_cause_mapping)
 
         # Mostrar los resultados
         st.write("Se han predicho las causas para los incendios con causa desconocida basándose en los clusters.")
-        st.dataframe(df[df['causa'] == 'desconocido'][['duracion-dias', 'tamanio-m2', 'causa', 'causa_predicha', 'cluster']].head(50))
+        st.dataframe(df[df['causa'] == 'desconocidas'][['duracion-dias', 'tamanio-m2', 'causa', 'causa_predicha', 'cluster']].head(50))
 
         # Guardar el nuevo dataset con las causas predichas
         output_file = './datos/datos_con_causas_predichas.csv'
