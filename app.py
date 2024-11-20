@@ -109,25 +109,69 @@ plt.title('Heatmap de Correlación Ampliada')
 st.pyplot(fig_corr_ext)
 plt.clf()
 
-# Sección de Clustering K-Means
-st.header("Clustering K-Means")
+# Sección para seleccionar el modelo
+st.header("Modelos de Clustering K-Means")
 
-# Variables seleccionadas para clustering
-numeric_features = ['duracion-dias-normalizado', 'log_tamanio_m2', 'latitud', 'longitud']
-categorical_features = ['causa', 'tipo-vegetacion', 'region']
+# Opciones de modelos
+st.subheader("Seleccione el Modelo que Desea Generar")
 
-# Estandarización de variables numéricas
-scaler = StandardScaler()
-df_scaled = df.copy()
-df_scaled[numeric_features] = scaler.fit_transform(df_scaled[numeric_features])
+model_option = st.selectbox(
+    'Seleccione el modelo:',
+    ('Modelo 1: Tamaño, Duración, Región, Estado y Causa',
+     'Modelo 2: Tipo de Vegetación, Duración, Región, Estado y Régimen de Fuego')
+)
 
-# Codificación de variables categóricas con OneHotEncoding
-encoder = OneHotEncoder(sparse_output=False)
-encoded_cats = encoder.fit_transform(df_scaled[categorical_features])
-encoded_cats_df = pd.DataFrame(encoded_cats, columns=encoder.get_feature_names_out(categorical_features))
+if model_option == 'Modelo 1: Tamaño, Duración, Región, Estado y Causa':
+    # Modelo 1
+    st.write("**Variables utilizadas en el Modelo 1:**")
+    st.write("- `tamanio-m2`")
+    st.write("- `duracion-dias`")
+    st.write("- `region`")
+    st.write("- `estado`")
+    st.write("- `causa`")
+    
+    # Variables seleccionadas para clustering
+    numeric_features = ['tamanio-m2', 'duracion-dias']
+    categorical_features = ['region', 'estado', 'causa']
+    
+    # Estandarización de variables numéricas
+    scaler = StandardScaler()
+    df_scaled = df.copy()
+    df_scaled[numeric_features] = scaler.fit_transform(df_scaled[numeric_features])
+    
+    # Codificación de variables categóricas con OneHotEncoding
+    encoder = OneHotEncoder(sparse_output=False)
+    encoded_cats = encoder.fit_transform(df_scaled[categorical_features])
+    encoded_cats_df = pd.DataFrame(encoded_cats, columns=encoder.get_feature_names_out(categorical_features))
+    
+    # Concatenar variables numéricas escaladas y categóricas codificadas
+    df_cluster = pd.concat([df_scaled[numeric_features], encoded_cats_df], axis=1)
 
-# Concatenar variables numéricas escaladas y categóricas codificadas
-df_cluster = pd.concat([df_scaled[numeric_features], encoded_cats_df], axis=1)
+elif model_option == 'Modelo 2: Tipo de Vegetación, Duración, Región, Estado y Régimen de Fuego':
+    # Modelo 2
+    st.write("**Variables utilizadas en el Modelo 2:**")
+    st.write("- `tipo-vegetacion`")
+    st.write("- `duracion-dias`")
+    st.write("- `region`")
+    st.write("- `estado`")
+    st.write("- `regimen-de-fuego`")
+    
+    # Variables seleccionadas para clustering
+    numeric_features = ['duracion-dias']
+    categorical_features = ['tipo-vegetacion', 'region', 'estado', 'regimen-de-fuego']
+    
+    # Estandarización de variables numéricas
+    scaler = StandardScaler()
+    df_scaled = df.copy()
+    df_scaled[numeric_features] = scaler.fit_transform(df_scaled[numeric_features])
+    
+    # Codificación de variables categóricas con OneHotEncoding
+    encoder = OneHotEncoder(sparse_output=False)
+    encoded_cats = encoder.fit_transform(df_scaled[categorical_features])
+    encoded_cats_df = pd.DataFrame(encoded_cats, columns=encoder.get_feature_names_out(categorical_features))
+    
+    # Concatenar variables numéricas escaladas y categóricas codificadas
+    df_cluster = pd.concat([df_scaled[numeric_features], encoded_cats_df], axis=1)
 
 # Determinación del número óptimo de clusters con el método del codo y silhouette score
 st.subheader("Determinación del Número Óptimo de Clusters")
@@ -135,7 +179,7 @@ st.subheader("Determinación del Número Óptimo de Clusters")
 # Cálculo de inercia y silhouette score para diferentes valores de K
 inertia = []
 silhouette_scores = []
-k_range = range(2, 11)
+k_range = range(2, 21)  # Ahora de 2 a 20
 
 for k in k_range:
     kmeans = KMeans(n_clusters=k, random_state=42)
@@ -169,7 +213,7 @@ st.write(f"**El número óptimo de clusters sugerido es {best_k}, basado en el m
 
 # Entrada del usuario para seleccionar K
 st.subheader("Seleccione el Número de Clusters (K)")
-selected_k = st.slider('Seleccione K', min_value=2, max_value=10, value=best_k)
+selected_k = st.slider('Seleccione K', min_value=2, max_value=20, value=best_k)
 
 if st.button("Generar Clusters"):
     # Entrenamiento del modelo K-Means con el K seleccionado
@@ -202,7 +246,7 @@ if st.button("Generar Clusters"):
 
     # Mostrar tabla con resultados
     st.subheader("Resultados de Clustering")
-    st.dataframe(df[['duracion-dias', 'tamanio-m2', 'causa', 'cluster']].head(50))
+    st.dataframe(df[['duracion-dias', 'tamanio-m2', 'causa', 'tipo-vegetacion', 'regimen-de-fuego', 'cluster']].head(50))
 
     # Mostrar conteo de registros por cluster
     st.subheader("Conteo de Registros por Cluster")
@@ -217,7 +261,11 @@ if st.button("Generar Clusters"):
         st.write(f"- Número de registros: {len(cluster_data)}")
         st.write(f"- Duración promedio de incendios: {cluster_data['duracion-dias'].mean():.2f} días")
         st.write(f"- Tamaño promedio de incendios: {cluster_data['tamanio-m2'].mean():.2f} m²")
-        st.write(f"- Causa más común: {cluster_data['causa'].mode()[0]}")
+        if 'causa' in categorical_features:
+            st.write(f"- Causa más común: {cluster_data['causa'].mode()[0]}")
+        if 'tipo-vegetacion' in categorical_features:
+            st.write(f"- Tipo de vegetación más común: {cluster_data['tipo-vegetacion'].mode()[0]}")
+        if 'regimen-de-fuego' in categorical_features:
+            st.write(f"- Régimen de fuego más común: {cluster_data['regimen-de-fuego'].mode()[0]}")
         st.write("---")
-
 
