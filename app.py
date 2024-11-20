@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from IPython.display import display
 from sklearn.preprocessing import StandardScaler, OneHotEncoder, LabelEncoder, MinMaxScaler
-from sklearn.decomposition import PSA
+from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
@@ -160,5 +160,5 @@ plt.show()
 
 if st.button("Generar Clusters"):
     st.title("Resultados de Clustering")
-    st.dataframe(data=df[['duracion-dias', 'tamanio-m2', 'causa', 'cluster']])
     st.pyplot(plt)  # Donde plt corresponde al gráfico PCA generado.
+
